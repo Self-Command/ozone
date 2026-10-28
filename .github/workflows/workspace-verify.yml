@@ -1,0 +1,57 @@
+name: Workspace Verify
+
+on:
+  pull_request:
+  push:
+    branches:
+      - workspace/dev
+  workflow_dispatch:
+
+concurrency:
+  group: workspace-verify-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  secret-scan:
+    name: Secret scan
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 2
+      - name: Scan changed files
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: bash .github/scripts/workspace-secret-scan.sh "$BASE_SHA"
+
+  verify:
+    name: Test, type-check and lint
+    needs: secret-scan
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Update Ubuntu CA certificates
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install --only-upgrade --no-install-recommends -y ca-certificates
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.22.1
+      - name: Enable Corepack
+        run: corepack enable
+      - name: Install dependencies
+        run: yarn install --immutable
+      - name: Run tests
+        run: yarn test
+      - name: Type-check
+        run: yarn type-check
+      - name: Lint
+        run: yarn lint
+      - name: Lint JavaScript files
+        run: yarn eslint --ext .js .
