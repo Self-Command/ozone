@@ -50,7 +50,9 @@ jobs:
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
-          file: ./Dockerfile
+          # Workspace-local variant with NEXT_PUBLIC_* pointing at the local
+          # stack; the upstream Dockerfile keeps production defaults.
+          file: ./.github/dev/ozone-local.Dockerfile
           platforms: linux/amd64
           push: true
           tags: ghcr.io/${{ steps.ns.outputs.owner }}/ozone-admin:${{ github.sha }}
